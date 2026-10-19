@@ -1,0 +1,1 @@
+function e(e){return/^(https?:|blob:|data:)/.test(e)?e:`/splog-sams/`+e.replace(/^\//,``)}export{e as t};

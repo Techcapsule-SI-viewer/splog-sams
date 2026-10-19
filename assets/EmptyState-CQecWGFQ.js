@@ -1,0 +1,1 @@
+import{s as e}from"./Button-W9TriS85.js";var t={empty:`_empty_16y4e_1`},n=e();function r({children:e,action:r}){return(0,n.jsxs)(`div`,{className:t.empty,children:[(0,n.jsx)(`div`,{children:e}),r]})}export{r as t};

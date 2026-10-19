@@ -1,0 +1,1 @@
+import{it as e,nt as t}from"./Button-W9TriS85.js";var n=e(t(),1);function r(e,t){(0,n.useEffect)(()=>{if(!e)return;let n=e=>{e.key!==`Escape`||document.querySelector(`[role="dialog"]`)||t()};return window.addEventListener(`keydown`,n),()=>window.removeEventListener(`keydown`,n)},[e,t])}export{r as t};

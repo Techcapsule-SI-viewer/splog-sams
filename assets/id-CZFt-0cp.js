@@ -1,0 +1,1 @@
+function e(e){return`${e}-${crypto.randomUUID().slice(0,8)}`}export{e as t};
