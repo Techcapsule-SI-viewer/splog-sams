@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spatial Log Screenflow</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: full-height canvas app — top bar with tabs, zoomable SVG canvas, right detail panel. Nodes are real screenshots. */
+:root{
+  --paper:#f2f2f2; --frame:#ffffff; --ink:#1a1a1a; --ink2:#6b6b6b; --line:#c6c6c6; --fill:#e6e6e6; --fill2:#d3d3d3; --dark:#262626; --on-dark:#ffffff; --band:#e9e9e9; --accent:#1a1a1a;
+  --ok:#2f7d4f; --part:#b26a00; --plan:#6d6a63; --edge:#8c8c8c; --edge2:#bababa; --hi:#1d5fd1; --hi2:#c2410c; --band2:#efefef;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Pretendard","Apple SD Gothic Neo","Malgun Gothic",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --paper:#1a1a1a; --frame:#262626; --ink:#ececec; --ink2:#a3a3a3; --line:#595959; --fill:#333333; --fill2:#454545; --dark:#e6e6e6; --on-dark:#1a1a1a; --band:#212121; --accent:#ececec; --ok:#6fc08f; --part:#e2a04a; --plan:#a4a19a; --edge:#8c8c8c; --edge2:#5e5e5e; --hi:#6ea2ff; --hi2:#fb923c; --band2:#1e1e1e; color-scheme:dark } }
+:root[data-theme="dark"]{ --paper:#1a1a1a; --frame:#262626; --ink:#ececec; --ink2:#a3a3a3; --line:#595959; --fill:#333333; --fill2:#454545; --dark:#e6e6e6; --on-dark:#1a1a1a; --band:#212121; --accent:#ececec; --ok:#6fc08f; --part:#e2a04a; --plan:#a4a19a; --edge:#8c8c8c; --edge2:#5e5e5e; --hi:#6ea2ff; --hi2:#fb923c; --band2:#1e1e1e; color-scheme:dark }
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);overflow:hidden;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line);background:var(--frame)}
+.top h1{font-size:15px;font-weight:600;margin:0;letter-spacing:-.01em}
+.top .sub{font-size:12px;color:var(--ink2);max-width:900px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+.tabs button{font:inherit;font-size:12.5px;padding:6px 12px;border:1px solid var(--line);background:var(--frame);color:var(--ink);border-radius:999px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--dark);color:var(--on-dark);border-color:var(--dark)}
+.tabs button:focus-visible,.ctl button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.stage{position:relative;flex:1;min-height:0}
+svg.canvas{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+svg.canvas.grabbing{cursor:grabbing}
+.ctl{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;gap:6px}
+.ctl button{font:inherit;font-size:13px;width:32px;height:32px;border:1px solid var(--line);background:var(--frame);color:var(--ink);border-radius:6px;cursor:pointer}
+.ctl button.wide{width:auto;padding:0 10px;font-size:12px}
+.legend{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--frame);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--ink2);display:grid;grid-template-columns:auto auto;gap:4px 10px;align-items:center}
+.legend svg{width:28px;height:12px;display:block}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 10px}
+.panel{position:absolute;top:0;right:0;height:100%;width:min(420px,100%);background:var(--frame);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.06);padding:18px max(16px,env(safe-area-inset-right,0px)) 18px 18px;overflow:auto;box-sizing:border-box;transform:translateX(100%);transition:transform .2s}
+.panel.open{transform:none}
+@media (prefers-reduced-motion: reduce){.panel{transition:none}}
+.panel h2{font-size:17px;margin:0 0 4px;font-weight:600;padding-right:32px}
+.panel .meta{font-size:12px;color:var(--ink2);display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.panel .meta span{border:1px solid var(--line);border-radius:999px;padding:2px 8px}
+.panel .meta span.st-ok{color:var(--ok);border-color:var(--ok)} .panel .meta span.st-part{color:var(--part);border-color:var(--part)} .panel .meta span.st-plan{color:var(--plan);border-style:dashed}
+.panel h3{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2);margin:16px 0 6px;font-weight:600}
+.panel p,.panel li{font-size:13px;line-height:1.5;margin:0}
+.panel ul{padding-left:18px;margin:0}
+.panel .close{position:absolute;top:12px;right:12px;font:inherit;font-size:13px;border:1px solid var(--line);background:var(--frame);color:var(--ink);border-radius:6px;width:28px;height:28px;cursor:pointer}
+.panel .exit{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--fill)}
+.panel .exit b{font-weight:500}
+.panel .exit button{font:inherit;font-size:12px;color:var(--ink);background:none;border:none;text-decoration:underline;cursor:pointer;padding:0;text-align:right}
+.panel .shot{width:100%;aspect-ratio:16/10;border:1px solid var(--line);border-radius:6px;object-fit:cover;display:block;background:var(--fill);cursor:zoom-in}
+.panel .shot.none{display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--ink2);cursor:default}
+.panel .variants{display:flex;gap:4px;margin:8px 0 0}
+.panel .variants button{font:inherit;font-size:11.5px;padding:3px 9px;border:1px solid var(--line);background:var(--frame);color:var(--ink);border-radius:999px;cursor:pointer}
+.panel .variants button[aria-pressed="true"]{background:var(--dark);color:var(--on-dark);border-color:var(--dark)}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;z-index:9;cursor:zoom-out}
+.lightbox.open{display:flex}
+.lightbox img{max-width:96vw;max-height:94vh;border-radius:6px;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+text{font-family:var(--sans)}
+.scr{cursor:pointer}
+.scr:hover .frame{stroke:var(--ink)}
+.scr.sel .frame{stroke:var(--hi);stroke-width:2.5}
+.scr.near .frame{stroke:var(--hi);stroke-width:1.8;stroke-dasharray:none}
+.scr.peek .frame{stroke:var(--hi2);stroke-width:3}
+.scr,.edge,.pill{transition:opacity .15s}
+.focus .scr.dim{opacity:.28} .focus .edge.dim{opacity:.15} .focus .pill.dim{opacity:.12}
+.edge.on.out path{stroke:var(--hi);stroke-width:1.8} .edge.on.out circle{fill:var(--hi)}
+.edge.on.in path{stroke:var(--hi2);stroke-width:1.6} .edge.on.in circle{fill:var(--hi2)}
+.pill.on rect{stroke-width:1.2} .pill.on.out rect{stroke:var(--hi)} .pill.on.in rect{stroke:var(--hi2)}
+.pill.on text{font-weight:600} .pill.on.out text{fill:var(--hi)} .pill.on.in text{fill:var(--hi2)}
+</style>
+</head><body>
+<header class="top">
+  <div>
+    <h1>Spatial Log · SAMS 화면설계도 — 구현 캡처</h1>
+    <div class="sub" id="hint">Depth 1–5 · 화면은 실제 스크린샷(1440×900) · 2026-10-19 기준</div>
+  </div>
+  <div class="tabs" role="tablist" id="tabs"></div>
+</header>
+<div class="stage">
+  <svg class="canvas" id="cv" role="img" aria-label="화면 흐름도 캔버스"></svg>
+  <div class="ctl">
+    <button id="zin" title="확대">+</button><button id="zout" title="축소">−</button><button id="fit" class="wide" title="전체 보기">전체</button>
+  </div>
+  <div class="legend">
+    <svg viewBox="0 0 28 12"><rect x="1" y="1" width="26" height="10" rx="2" fill="none" stroke="currentColor"/></svg><span>화면 (라우트)</span>
+    <svg viewBox="0 0 28 12"><rect x="1" y="1" width="26" height="10" rx="2" fill="none" stroke="currentColor" stroke-dasharray="3 2"/></svg><span>오버레이 상태 (모달·드로어·뷰어)</span>
+    <svg viewBox="0 0 28 12"><line x1="1" y1="6" x2="24" y2="6" stroke="currentColor" stroke-width="1"/><path d="M22 3l5 3-5 3z" fill="currentColor"/></svg><span>전환 (트리거 액션)</span>
+    <svg viewBox="0 0 28 12"><line x1="1" y1="6" x2="24" y2="6" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3"/><path d="M22 3l5 3-5 3z" fill="currentColor"/></svg><span>뒤로 · 닫기 · 취소</span>
+    <span><i style="background:var(--ok)"></i><i style="background:var(--part)"></i><i style="background:var(--plan)"></i></span><span>구현 · 부분 · 미구현</span>
+    <svg viewBox="0 0 28 12"><line x1="1" y1="6" x2="24" y2="6" stroke="var(--hi)" stroke-width="1.8"/><path d="M22 3l5 3-5 3z" fill="var(--hi)"/></svg><span>선택한 화면에서 나감</span>
+    <svg viewBox="0 0 28 12"><line x1="1" y1="6" x2="24" y2="6" stroke="var(--hi2)" stroke-width="1.6"/><path d="M22 3l5 3-5 3z" fill="var(--hi2)"/></svg><span>선택한 화면으로 들어옴</span>
+  </div>
+  <aside class="panel" id="panel" aria-live="polite">
+    <button class="close" id="pclose" aria-label="닫기">×</button>
+    <div id="pbody"></div>
+  </aside>
+</div>
+<div class="lightbox" id="lb"><img id="lbimg" alt=""></div>
+
+<script>
+/* ───────── 데이터 ───────── */
+const MODE='docs';
+const IMG={"A1-1": "screenshots/A1-1.png", "A1-assets": "screenshots/A1-assets.png", "A1": "screenshots/A1.png", "A2-1": "screenshots/A2-1.png", "A2-2": "screenshots/A2-2.png", "A2-3": "screenshots/A2-3.png", "A2-4": "screenshots/A2-4.png", "A3-1": "screenshots/A3-1.png", "A3": "screenshots/A3.png", "A4": "screenshots/A4.png", "B1-filter": "screenshots/B1-filter.png", "B1": "screenshots/B1.png", "B2-1": "screenshots/B2-1.png", "B2-2": "screenshots/B2-2.png", "B2": "screenshots/B2.png", "B3-1": "screenshots/B3-1.png", "B3-2": "screenshots/B3-2.png", "B3-3": "screenshots/B3-3.png", "B3-item": "screenshots/B3-item.png", "B3": "screenshots/B3.png", "B4-1": "screenshots/B4-1.png", "B4-2": "screenshots/B4-2.png", "B4-3": "screenshots/B4-3.png", "B4": "screenshots/B4.png", "C1": "screenshots/C1.png", "C2-1": "screenshots/C2-1.png", "C2": "screenshots/C2.png", "C3": "screenshots/C3.png", "D1": "screenshots/D1.png"}; // code → 이미지 경로 또는 data URI
+const AREAS = [
+  {id:'entry',  name:'진입'},
+  {id:'sams',   name:'SAMS · 데이터 관리자'},
+  {id:'log',    name:'Spatial Log · 관리자 공통'},
+  {id:'public', name:'공개 콘텐츠 · 일반 뷰어'},
+];
+const DEPTH_NAMES = {1:'진입', 2:'영역 홈', 3:'주 기능', 4:'상세 · 편집', 5:'확정 · 발행'};
+const STATUS = {ok:'구현', part:'부분', plan:'미구현'};
+
+// shots: 첫 번째가 노드 썸네일. 상태 변형(필터 열림 등)은 뒤에.
+const S = [
+ {id:'login', name:'로그인', code:'D1', area:'entry', depth:1, role:'전체', status:'part', shots:[{c:'D1',l:'기본'}],
+  desc:'역할을 골라 들어간다. 인증은 아직 없다(역할 선택 버튼). 일반 뷰어는 첫 발행본으로 간다.',
+  ui:['로고 · 패널','역할 선택(데이터 관리자 / 프로젝트·공간 관리자 / 일반 뷰어)'],
+  notes:['인증 · 세션 · 뷰어 그룹 접근 검사는 미결(아직 고려하지 않은 것)','발행 링크 열람은 /c/:token 주소로 직접'],
+  exits:[{a:'데이터 관리자',t:'sams-items',ov:1},{a:'프로젝트·공간 관리자',t:'explore',ov:1},{a:'일반 뷰어',t:'cur-view',ov:1}]},
+
+ // ── SAMS ──
+
+ {id:'sams-items', name:'Item 목록', code:'A1', area:'sams', depth:2, role:'데이터 관리자', status:'ok', shots:[{c:'A1',l:'기본'},{c:'A1-assets',l:'미할당 Asset 표'}],
+  desc:'SAMS 홈. 좌측은 전체 아이템 + 접히는 묶음(Collection · Site · 상태), 우측은 Item 표(열 정렬 · 묶음으로 일괄 작업). 데이터 관리에서는 Item 이름에 [Site] 접두를 보이지 않는다.',
+  ui:['전체 아이템 버튼','Collection(12종, Spatial Log 비열람 표시) · Site · 상태 묶음(검수 중 · 위치 없음 · 수정 요청 · 미할당 Asset n — 0이어도 보임)','데이터 업로드(28px 채운 버튼, A2 등록으로) · 검색 · 선택 · Asset - Item 편집(보조) — 항상 보임','Item 표: 제목 · 유형 · Site · 취득일 · 상태','"미할당 Asset"을 고르면 Asset 표(key · role · 파일명 · 크기 · 원래 Item) + 바 "미할당 Asset n개 — [Asset - Item 편집]"'],
+  notes:['EPSG 필터는 뺐다(표 · A3에서 본다)','일괄 작업은 A1-1 묶음으로','[Asset - Item 편집]은 A4로 간다: 묶음에 Item이 있으면 그 Item을 올린 채로, 없으면 빈 카드판. 묶음 Item이 여러 Project면 비활성','미할당 Asset(itemId null)은 SAMS에만 보인다. 다른 상태 · Collection · Site를 누르면 Item 표로 돌아온다','원래 Item은 저장하지 않아 Asset 표에서 늘 —'],
+  exits:[{a:'[데이터 업로드]',t:'reg-file',ov:1},{a:'행 클릭',t:'item-edit',ov:1},{a:'[선택]',t:'sams-picker',ov:1},{a:'[Asset - Item 편집] (빈 카드판 · 미할당 Asset 바에서도)',t:'rebundle',ov:1},{a:"'탐색' 탭",t:'explore'}]},
+
+ {id:'reg-file', name:'등록 1 · File', code:'A2-1', area:'sams', depth:3, role:'데이터 관리자', status:'ok', shots:[{c:'A2-1',l:'기본'}],
+  desc:'유형 선택 없이 파일 · 폴더를 먼저 받는다. 놓은 파일 수와 용량만 확인하고 분석을 시작한다.',
+  ui:['스테퍼(1 File · 2 Analyze · 3 Asset→Item · 4 Review)','드롭 영역','놓은 파일 목록 · 용량','취소 · 분석 시작','샘플 파일로 해보기(개발용)'],
+  notes:['실제 업로드 · 분할 전송은 서버 결정 뒤'],
+  exits:[{a:'[분석 시작]',t:'reg-analyze',ov:1},{a:'[취소]',t:'sams-items',back:1}]},
+
+ {id:'reg-analyze', name:'등록 2 · Analyze', code:'A2-2', area:'sams', depth:4, role:'데이터 관리자', status:'part', state:'진행 상태', shots:[{c:'A2-2',l:'기본'}],
+  desc:'전송 진행률과 Asset 단위 파이프라인(유형 판별 → 메타 추출 → 프리뷰). 판별 신뢰도가 낮은 Asset은 표에 표시된다.',
+  ui:['진행률 · 남은 시간','파이프라인 상태','Asset · 판별 유형 · 신뢰도 표','취소 · 자동 다음 단계'],
+  notes:['전송 · 추출은 시간만 흉내 낸다(shortcut). 실제 헤더 읽기(EXIF · LAS · PLY · GeoTIFF)는 sams-api 추출기 설계 뒤'],
+  exits:[{a:'분석 완료 (자동)',t:'reg-bundle',ov:1},{a:'[취소]',t:'sams-items',back:1}]},
+
+ {id:'reg-bundle', name:'등록 3 · Asset → Item 묶기', code:'A2-3', area:'sams', depth:4, role:'데이터 관리자', status:'ok', shots:[{c:'A2-3',l:'기본'}],
+  desc:'업로드 당시 파일을 중심으로 묶음을 처음 정한다. 폴더 1개 = Item 1개를 기본 제안으로 두고 풀기 · 합치기 · 유형 재설정으로 고친다.',
+  ui:['Asset 목록(폴더 단위)','Item 묶음 카드 · 애매 표시','풀기 · 합치기 · 유형 재설정','뒤로 · Review'],
+  notes:[],
+  exits:[{a:'[Review]',t:'reg-review',ov:1},{a:'[뒤로]',t:'reg-file',back:1}]},
+
+ {id:'reg-review', name:'등록 4 · Review', code:'A2-4', area:'sams', depth:5, role:'데이터 관리자', status:'ok', shots:[{c:'A2-4',l:'기본'}],
+  desc:'Item 단위 검수. 좌측은 사람이 손댈 것(제목 · 위치 · Site · 관계), 우측은 파일에서 읽은 STAC 값. 필수값이 비어도 보류(검수 중)로 등록할 수 있다.',
+  ui:['Item 목록 · 채울 것','제목 · 위치(지도 지정 · Site 위치 승계) · Site 칩 · 관계','읽은 값 표(자동 채움 막대)','미니맵','보류 · 등록'],
+  notes:['로컬 파일 프리뷰는 유형 아이콘 + 파일명만(부분)'],
+  exits:[{a:'[등록]',t:'sams-items',ov:1},{a:"[보류] → '검수 중'",t:'sams-items',back:1}]},
+
+ {id:'item-edit', name:'Item 편집기', code:'A3', area:'sams', depth:3, role:'데이터 관리자', status:'ok', shots:[{c:'A3',l:'기본'}],
+  desc:'제목 · 설명 · Collection(재분류) · 상태, 메타데이터(STAC, 기계 추출 · 어휘 외 값 표시), Site 연결, 관계(원본/파생 · 버전), Asset 목록, 미니맵. 좌측 목록 상단에 ← 데이터 관리.',
+  ui:['좌측 Item 목록 · ← 데이터 관리','프리뷰','제목 · 설명 · Collection · 상태','메타데이터 (STAC) + sams: 필드 추가','Site 칩 줄 · 위치 승계','관계 패널(원본 추가 · 파생 추가 · 버전) · 수정 요청 처리','Asset 목록(읽기 전용) · 아래 흐린 안내: Asset 묶음은 데이터 관리 목록에서 Item을 골라 Asset - Item 편집','미니맵 · 위치 지정','지도에서 보기 · 저장 바 · Item 삭제'],
+  notes:['저장 모델은 B3와 같다: 초안 + 저장 바 + 이동 가드(한 화면 한 저장 모델)','Site는 칩 줄, 관계는 좌측 묶음','Item 삭제(영향 요약, 발행 Curation에 들면 불가)'],
+  exits:[{a:'[지도에서 보기]',t:'item-drawer',ov:1},{a:'[관계]',t:'rel-modal',ov:1},{a:'[저장] · ← 데이터 관리',t:'sams-items',back:1}]},
+
+ {id:'rel-modal', name:'관계 연결 (묶음)', code:'A3-1', area:'sams', depth:4, overlay:true, base:'item-edit', role:'데이터 관리자', status:'ok', shots:[{c:'A3-1',l:'기본'}],
+  desc:'관계 패널의 "원본 추가 / 파생 추가"를 누르면 좌측 Item 목록이 묶음이 된다. 완료하면 초안에 반영되고 저장에 묶인다. 버전은 같은 Site · 같은 Collection으로 계산되어 보여 주기만 한다.',
+  ui:['묶음 바: "X의 원본/파생 연결 중 · n건 — 완료 / 취소"','행 클릭 · 체크 표시'],
+  notes:['예전 모달은 없앴다'],
+  exits:[{a:'[연결]',t:'item-edit',back:1}]},
+
+ {id:'sams-picker', name:'일괄 작업 (묶음)', code:'A1-1', area:'sams', depth:3, overlay:true, base:'sams-items', role:'데이터 관리자', status:'ok', shots:[{c:'A1-1',l:'기본'}],
+  desc:'A1 표가 묶음이 된 상태. 행 클릭으로 담고 상단 바에서 Site 배치 · 등록됨으로 변경 · 삭제를 한 번에 한다. 담은 Item으로 툴바 [Asset - Item 편집]을 누르면 A4에 그 Item이 올라간다. B4-2 담기와 같은 문법.',
+  ui:['상단 바: "묶음 n건 — Site 배치 ▾ · 등록됨으로 변경 · 삭제 · 비우기 · 닫기"','행 체크 표시 · 열 헤더 "모두"'],
+  notes:['삭제는 영향 요약 모달(발행 Curation에 든 Item은 제외하고 이유 표시)','Event · Curation 연결은 Spatial Log 몫이라 여기 없음'],
+  exits:[{a:'툴바 [Asset - Item 편집] (담은 Item으로)',t:'rebundle',ov:1},{a:'[Site 배치] · [등록됨] · [삭제] · [닫기]',t:'sams-items',back:1}]},
+
+ {id:'rebundle', name:'Asset - Item 편집', code:'A4', area:'sams', depth:3, role:'데이터 관리자', status:'ok', shots:[{c:'A4',l:'기본'}],
+  desc:'등록된 Item들을 묶기 화면에 다시 올려 Asset을 옮기거나 Item을 나누고 합친다. 본문을 반으로 나눠 좌측 Item 묶음(카드) · 우측 미할당 Asset(프리뷰 타일). 등록 때 놓친 것을 보완하는 재검토 용도이며, 묶기 조작 UI는 A2-3를 재사용한다. Review는 다시 타지 않는다.',
+  ui:['머리: "Asset - Item 편집" 라벨 · 올린 Item n · Asset m · "등록 때 묶음을 다시 검토합니다 · A2-3와 같은 조작"','좌측 Item 목록: 들어오면 바로 다중 선택(행 클릭 = 올리기 / 내리기, 체크). 옮긴 Item은 내릴 수 없음 · 다른 Project는 흐리게 — 이유 툴팁','카드 = 기존 Item("기존" · 저장된 제목 · Collection · 취득일 · Site · Asset 수) 또는 새 Item','풀기(카드의 Asset 전부 → 트레이) · 합치기 · 유형 재설정','Asset 고르기: 카드 행 · 우측 타일을 누르면 토글, Shift면 범위. 끌면 고른 Asset이 한꺼번에(카드 → 카드, 카드 → 미할당, 미할당 → 카드)','[선택 Asset n개 → 선택 Item에 넣기]: 카드 하나를 고르고 누르면 끌어 넣기와 같다','우측 미할당 Asset: 프리뷰 타일(사진 · 영상은 실제 파일, 그 밖은 판별 유형 아이콘) + 등록 Analyze 판별(유형 · 신뢰도) · 원본 Item(흐리게) · 되돌리기, [새 Item으로] · [남은 Asset 모두 새 Item으로]','비어버린 Item = 삭제 예정','확정(영향 요약: 변경 · 새 · 삭제 Item + 경고 "미할당으로 남는 Asset n개") · 취소 · ← 돌아가기','변경이 있는 채로 떠나면 가드 "확정하고 이동 / 저장하지않고 이동 / 취소" — 확정하고 이동도 영향 요약을 거친다'],
+  notes:['라우트 /sams/rebundle?items=…','A2-3와의 차이: 파일 분석 결과가 아니라 저장된 Item · Asset을 보여 준다','발행 Curation에 든 Item을 비우면 확정 불가','진입은 A1 [Asset - Item 편집]뿐(A2-3의 변형). A3에는 진입이 없다','저장된 미할당 Asset은 처음부터 트레이에 있다. 트레이에 남아도 확정할 수 있다(미할당으로 저장)','프리뷰 · 판별은 등록 Analyze와 같은 pipeline.detect(확장자). 3D · 점군 실제 렌더 썸네일은 sams-api 몫','트레이 → 새 Item: 유형은 등록 파이프라인 확장자 판별, 원본 Item이 없으면 Project만 정하고 Site · 취득일 · 위치는 비움','새로고침은 브라우저 기본 확인창'],
+  exits:[{a:'[확정] · [취소] · ← 데이터 관리',t:'sams-items',back:1}]},
+
+ // ── Spatial Log ──
+
+ {id:'explore', name:'탐색', code:'B1', area:'log', depth:2, role:'관리자 공통', status:'ok', shots:[{c:'B1',l:'기본'},{c:'B1-filter',l:'필터 열림'}],
+  desc:'Spatial Log 홈. Explorer 레이아웃(좌 372px + 우 지도)을 유지하고, 좌측은 Site별 또는 전체 타임라인(Phase 헤더 아래 Event · Item 행). 필터(Site · Event · 데이터 유형)는 버튼 하나로 접고 편다. 행에는 칩 · 태그를 두지 않는다. 열람 화면이라 \'선택\'(묶음) 버튼은 없다 — 묶음은 B4-1 [Item 담기]로 들어올 때만 열린다.',
+  ui:['Project ▾ · 검색 · 필터 버튼(걸리면 점)','결과 n건 · 전체 타임라인 | Site별 · 최신순/오래된순 · 필터 초기화 · [시점 비교]','Site 헤더 / Phase 헤더 아래 Event · Item 행(위치 없는 Item은 호버 카드)','지도: Site 폴리곤 · 마커 · 커버리지 · 범례(Event 포함) · 3D/일반/위성 · 이 지역으로 검색','시점 비교 하단 바: 기준 시점 행 선택 → 3D 보유 후보 2개 선택 → [비교] (후보 없으면 안내)'],
+  notes:['행 클릭은 Explorer처럼 지도 팝업 → 상세보기가 드로어(위치 없는 Item은 바로 드로어)','전체 타임라인 토글은 지도 위가 아니라 결과 줄에','?item= (A3 · B3 지도에서 보기) → 드로어 바로 열림 · ?from=context → 드로어에 [프로젝트로 돌아가기]'],
+  exits:[{a:'Item 행 → 팝업 → 상세보기',t:'item-drawer',ov:1},{a:'[시점 비교] → 기준 시점 → 후보 2개 → [비교]',t:'compare',ov:1},{a:'B4-1 [Item 담기]로 진입 → 묶음 바',t:'basket',ov:1},{a:"'프로젝트' 탭",t:'context',ov:1},{a:"'큐레이션' 탭",t:'cur-list',ov:1},{a:"'데이터 관리' 탭 (데이터 관리자만)",t:'sams-items'}]},
+
+ {id:'item-drawer', name:'Item 상세 드로어', code:'B2', area:'log', depth:3, overlay:true, base:'explore', role:'관리자 공통', status:'ok', shots:[{c:'B2',l:'기본'}],
+  desc:'탐색 위 우측 드로어(Explorer 드로어 모양). 액션 타일은 Item 유형에 따라 갈린다 — 3D 보유면 [3D 렌더링], 영상이면 [영상 보기], 사진 · 파노라마면 [크게 보기]. 아래로 설명 + 핵심 표, 더 보기(STAC 전체 + Asset 목록), 연관 Item, 코멘트 · 수정 요청. 편집하기는 데이터 관리자에게만.',
+  ui:['제목 · 부제(유형 · 취득일 · Site) · Site/Event/검수 중 Pill','액션 타일: 3D 렌더링 | 영상 보기 | 크게 보기 · 다운로드(권한) · 비교(비교 가능 유형만) · 편집하기(데이터 관리자)','상세 설명: 설명문 + 표(Site · Event · 취득일 · 크기 · 규모 · 장비(상속 표시) · 처리 소프트웨어 · 좌표계 · 좌표값)','더 보기(STAC 전체): Factual Metadata 전체 · Asset 목록(key · role · 파일명 · 크기)','연관 Item n건: 원본 · 파생 · 같은 Site Item — 비열람 유형은 이름만(데이터 관리자만 A3로)','코멘트 입력 · 수정 요청','[프로젝트로 돌아가기] (B3에서 왔을 때만)'],
+  notes:['1단 프리뷰는 없다(Explorer 선례 없음) — 지도 팝업 썸네일로 대신(미구현)','Published 칩 · 담긴 Curation 표시는 없다'],
+  exits:[{a:'[3D 렌더링] / [영상 보기] / [크게 보기]',t:'realdata',ov:1},{a:'[비교] → 이 Item이 기준 시점',t:'compare',ov:1},{a:'[편집하기] (데이터 관리자)',t:'item-edit',ov:1},{a:'[프로젝트로 돌아가기]',t:'context',back:1},{a:'[×] 닫기',t:'explore',back:1}]},
+
+ {id:'compare', name:'시점 비교', code:'B2-1', area:'log', depth:4, role:'관리자 공통', status:'ok', shots:[{c:'B2-1',l:'기본'}],
+  desc:'기준 시점(anchor) 전후의 3D 보유 Item(pointcloud · mesh · gs)만 후보로 뜨고, 각 행의 A/B 버튼으로 두 시점을 고르면 우측에 두 지도가 맞물려 뜬다(이동 · 줌 · 기울기 동기화, 각 지도에 그 Item의 실데이터 3D). 스와이프 · 나란히 · 투명도 세 모드. 비교 뷰(SplitCompare)는 C3와 같은 것을 쓴다.',
+  ui:['좌측: ← 돌아가기 · 기준 시점(제목 · 날짜) · 후보 목록(날짜순, 행마다 [A] [B])','우측: 두 지도 맞물림 + A/B 태그(날짜 · 제목)','모드 툴바: 스와이프(핸들 드래그) · 나란히 · 투명도(슬라이더)','[비교 닫기] → B1','A/B가 둘 다 골라지기 전에는 안내 문구'],
+  notes:['URL /log/compare?anchor=&a=&b= — 기준 시점은 URL로 고정, 바꾸려면 B1에서 다시(부분)','후보 규칙은 rules.compareCandidates(같은 Site · 3D 보유 · 열람 가능)','상단 드롭다운은 없다 — 후보는 규칙이 정한다'],
+  exits:[{a:'[비교 닫기] · ← 돌아가기',t:'explore',back:1}]},
+
+ {id:'realdata', name:'실데이터 뷰', code:'B2-2', area:'log', depth:4, overlay:true, base:'explore', role:'관리자 공통', status:'ok', shots:[{c:'B2-2',l:'3D 렌더링'}],
+  desc:'유형별로 갈린다. 3D · 포인트클라우드는 Explorer처럼 지도 위에 그린다(배경지도가 3D로 바뀌고 상단에 Item 이름 배너 + [3D 렌더링 닫기]). 사진 · 파노라마는 이미지 라이트박스, 영상은 비디오 라이트박스. 닫으면 드로어로 돌아간다.',
+  ui:['3D: 지도 위 렌더 · 상단 배너(제목 · [3D 렌더링 닫기]) · 3D/일반지도/위성 토글','사진 · 파노라마: 이미지 라이트박스(넘기기 · 다운로드)','영상: 비디오 라이트박스(다운로드)','다운로드는 권한(item.download)일 때만'],
+  notes:['회전 · 단면 · 측정 툴은 의도적 생략(Explorer 선례 없음)','3D 렌더 중 다운로드는 없다 — 드로어의 다운로드 타일로 대신(미구현)','위치 없는 3D Item은 안내 토스트'],
+  exits:[{a:'[3D 렌더링 닫기] · 라이트박스 [×]',t:'item-drawer',back:1}]},
+
+ {id:'context', name:'프로젝트 (맥락 관리)', code:'B3', area:'log', depth:3, role:'관리자 공통', status:'ok', shots:[{c:'B3',l:'Site 선택'},{c:'B3-item',l:'Item 선택'}],
+  desc:'좌측은 탐색과 같은 리스트(검색 · 필터 · 전체 타임라인/Site별), 가운데 지도, 우측 패널에서 Project · Site · Event를 인라인 편집한다. 변경이 있을 때만 저장 바가 뜨고 이동 전에 묻는다.',
+  ui:['Project ▾ · 검색 · 필터 · 선택(묶음)','리스트(Project 행 · Site/Phase 헤더 · Event · Item)','묶음 바: 대상 있으면 "X에 Item 연결 중 · n건 — 완료 / 취소", 없으면 "묶음 n건 — Event 연결 ▾ · Site 배치 ▾ · Curation에 담기 · 비우기"','지도(Site 폴리곤 · 마커)','우측 패널: + Project/Site/Event · 폼 · 저장 바 · 삭제','Site 패널: 폴리곤 편집 · Item 배치 · 연결된 Item','Event 패널: 종류 · 상위 Phase · 연결된 Item + Item 추가','Item 패널: 정보 · Site/Event 칩 줄 · 지도에서 보기 · 편집하기'],
+  notes:['+Project/+Site는 초안(점선 행)으로 시작, 첫 저장 때 기록','삭제는 영향 요약 모달, Project는 비어 있을 때만','미배치 Site 패널: 제안 Site 칩','Project 선택 시 연결된 Item 목록은 제거(좌측과 중복)'],
+  exits:[{a:'[폴리곤 편집] · 폴리곤 없음 — 그리기',t:'site-draw',ov:1},{a:'[+ Event]',t:'event-modal',ov:1},{a:'[Item 배치] · 전체 제안 보기',t:'place-items',ov:1},{a:'Item [지도에서 보기]',t:'item-drawer'},{a:'Item [편집하기]',t:'item-edit'},{a:"'탐색' 탭",t:'explore',back:1}]},
+
+ {id:'site-draw', name:'Site 폴리곤 편집', code:'B3-1', area:'log', depth:4, role:'관리자 공통', status:'ok', shots:[{c:'B3-1',l:'기본'}],
+  desc:'지도 그리기 모드. 정점을 직접 찍거나 Item 커버리지에서 만든다. 우측은 Site 이름(읽기 전용)과 폴리곤 도구만. 설명 · parent는 B3 패널에서.',
+  ui:['툴바: 그리기 · 커버리지에서 만들기 · 정점 삭제 · 모두 지우기','정점 드래그','← 돌아가기 · 취소 · 저장'],
+  notes:['저장 뒤 연결 Item이 없으면 B3-3, 있으면 B3(토스트 "배치 제안 보기")','정점 사이 삽입 · 스냅은 없음(shortcut)'],
+  exits:[{a:'[저장] (연결 Item 없음)',t:'place-items',ov:1},{a:'[저장] (연결 Item 있음) · [취소]',t:'context',back:1}]},
+
+ {id:'event-modal', name:'새 Event', code:'B3-2', area:'log', depth:4, overlay:true, base:'context', role:'관리자 공통', status:'ok', shots:[{c:'B3-2',l:'기본'}],
+  desc:'모달은 새로 만들 때만. 종류(Event | Phase) · 이름 · 자유 태그 · 날짜(점/구간) · 상위 Phase(날짜로 자동 제안, + 새 Phase) · Site · 설명. 기존 Event는 B3 패널에서 인라인 편집.',
+  ui:['Event | Phase 토글','이름 · 태그','날짜 점/구간','상위 Phase ▾ (제안 · + 새 Phase)','Site ▾ · 설명','취소 · 저장'],
+  notes:['제안 Item 체크 목록은 없앴다 — 저장 뒤 패널 "Item 추가" 묶음에서','날짜가 Phase 기간 밖이면 경고만'],
+  exits:[{a:'[저장]',t:'context',back:1}]},
+
+ {id:'place-items', name:'Item 배치 확정', code:'B3-3', area:'log', depth:5, role:'관리자 공통', status:'ok', shots:[{c:'B3-3',l:'기본'}],
+  desc:'폴리곤 안 Item 커버리지가 하이라이트되고 우측 표에서 Site 소속을 확정하거나 제외한다. 미배치 id로 열면 Item마다 Site를 고르는 미배치 모드.',
+  ui:['지도 하이라이트','제안 Item 표 · 거리 · 유형','제외 · 확정 · 취소'],
+  notes:['취소 · ← 돌아가기 있음'],
+  exits:[{a:'[확정] · [취소]',t:'context',back:1}]},
+
+ {id:'cur-list', name:'Curation 목록', code:'B4', area:'log', depth:3, role:'관리자 공통', status:'ok', shots:[{c:'B4',l:'기본'}],
+  desc:'Project 아래 Curation 카드(상태 초안/발행 · 대상 · Item 수). v22 Collections 카드 디자인만 참고.',
+  ui:['Project ▾ · + 새 Curation','카드 그리드'],
+  notes:[],
+  exits:[{a:'카드 클릭 · [+ 새 Curation]',t:'cur-edit',ov:1},{a:"'탐색' 탭",t:'explore',back:1}]},
+
+ {id:'cur-edit', name:'Curation 편집', code:'B4-1', area:'log', depth:4, role:'관리자 공통', status:'ok', shots:[{c:'B4-1',l:'기본'}],
+  desc:'담긴 Item 순서(드래그) · 이야기 · 대상 · 목적, 뷰어 미리보기(지도/타임라인), 기본 뷰 · 코멘트 · 다운로드 설정. 항상 최신 Item을 참조한다(스냅샷 없음).',
+  ui:['담긴 Item 순서','이야기 · 대상 · 목적','미리보기(지도 · 타임라인)','기본 뷰 · 코멘트 · 다운로드','Item 담기 · 미리보기 · 저장 · 발행 · 발행 취소'],
+  notes:['← Curation 목록으로 돌아간다','미리보기 C1에는 "← 편집으로 돌아가기"'],
+  exits:[{a:'[Item 담기]',t:'basket',ov:1},{a:'[발행]',t:'publish-modal',ov:1},{a:'[미리보기]',t:'cur-view',ov:1},{a:'← 목록',t:'cur-list',back:1}]},
+
+ {id:'basket', name:'Curation에 담기 (묶음)', code:'B4-2', area:'log', depth:5, overlay:true, base:'explore', role:'관리자 공통', status:'ok', shots:[{c:'B4-2',l:'기본'}],
+  desc:'B4-1 "Item 담기"로 오면 탐색 좌측 리스트가 그 Curation을 대상으로 한 묶음이 된다(지금 담긴 Item이 골라진 채로). 행 클릭으로 담고(하이라이트 · 체크), 그룹 헤더 "모두 추가 / 모두 빼기". 탐색에는 "선택"(묶음)이 없다 — 대상 없는 묶음은 프로젝트 탭에만.',
+  ui:['상단 바: "← Curation으로 돌아가기 · X에 Item 연결 중 · n건 — 취소 / 완료"','행 체크 표시'],
+  notes:['지도에서 선택은 미구현'],
+  exits:[{a:'[완료]',t:'cur-edit',ov:1,back:1}]},
+
+ {id:'publish-modal', name:'발행 설정', code:'B4-3', area:'log', depth:5, overlay:true, base:'cur-edit', role:'관리자 공통', status:'part', shots:[{c:'B4-3',l:'기본'}],
+  desc:'공개 범위(링크 / 뷰어 그룹) · 코멘트 · 다운로드 허용. 발행하면 링크가 생성되고 C1에서 열린다.',
+  ui:['공개 범위 라디오','코멘트 · 다운로드 토글','취소 · 발행'],
+  notes:['그룹은 id 쉼표 입력 — 그룹 엔터티 없음','토큰 만료 · 취소 · 서버 측 권한 강제는 미결(그래서 부분)'],
+  exits:[{a:'[발행] → 링크 생성',t:'cur-view',ov:1}]},
+
+ // ── 공개 ──
+
+ {id:'cur-view', name:'Curation 뷰어', code:'C1', area:'public', depth:2, role:'일반 뷰어', status:'ok', shots:[{c:'C1',l:'기본'}],
+  desc:'일반 뷰어의 유일한 홈. B1을 읽기 전용으로 단순화 — 이야기 · 담긴 Item 순서 · 지도 · 가로 타임라인. 기본 뷰(지도 / 타임라인 / 비교)로 열린다.',
+  ui:['이야기 · 대상 · 목적','담긴 Item 순서','지도(Site · 담긴 Item)','Event · Item 타임라인','시점 비교(같은 Site 3D 두 시점일 때)'],
+  notes:['비교 "허용" 설정은 모델에 없어 조건부 표시(부분)','미리보기 · 로그인 세션일 때는 좌측 상단에 돌아가기 링크, 일반 뷰어에는 없음'],
+  exits:[{a:'Item 클릭',t:'cur-item',ov:1},{a:'[시점 비교]',t:'cur-compare',ov:1}]},
+
+ {id:'cur-item', name:'Item 상세 (뷰어)', code:'C2', area:'public', depth:3, overlay:true, base:'cur-view', role:'일반 뷰어', status:'ok', shots:[{c:'C2',l:'기본'}],
+  desc:'우측 드로어. 제목 · Site · Event · 취득일 · 프리뷰 · 설명 · 코멘트(허용 시). STAC 상세와 관리 버튼은 없다.',
+  ui:['제목 · 맥락','프리뷰','설명 · 이야기','코멘트(허용 시)','실데이터 보기 · 닫기'],
+  notes:[],
+  exits:[{a:'[실데이터 보기]',t:'cur-real',ov:1},{a:'[×] 닫기',t:'cur-view',back:1}]},
+
+ {id:'cur-compare', name:'시점 비교 (뷰어)', code:'C3', area:'public', depth:3, role:'일반 뷰어', status:'ok', shots:[{c:'C3',l:'기본'}],
+  desc:'Curation에 담긴 같은 Site의 두 시점을 스와이프 · 나란히로 비교. 편집 도구 없음.',
+  ui:['A/B 선택','스플릿뷰','스와이프 · 나란히','닫기'],
+  notes:[],
+  exits:[{a:'[닫기]',t:'cur-view',back:1}]},
+
+ {id:'cur-real', name:'실데이터 뷰 (뷰어)', code:'C2-1', area:'public', depth:4, overlay:true, base:'cur-view', role:'일반 뷰어', status:'ok', shots:[{c:'C2-1',l:'영상'}],
+  desc:'B2-2와 같은 뷰어. 다운로드는 Curation이 허용한 경우에만.',
+  ui:['뷰어','다운로드(허용 시)','닫기'],
+  notes:[],
+  exits:[{a:'[닫기]',t:'cur-item',back:1}]},
+];
+const BY = Object.fromEntries(S.map(s=>[s.id,s]));
+
+const TABS = [
+ {id:'overview', name:'전체 Overview', ids:S.map(s=>s.id), ovOnly:true,
+  note:'전체 화면을 Depth(가로) × 영역(세로)으로 배치. 주 전환만 표시, 뒤로·닫기는 기능별 탭에서. 화면을 클릭하면 캡처와 상세.'},
+ {id:'f1', name:'F1 등록 · 데이터 관리', ids:['sams-items','sams-picker','reg-file','reg-analyze','reg-bundle','reg-review','item-edit','rel-modal','rebundle'],
+  note:'File → Analyze → Asset–Item 묶기 → Review. 등록 뒤에는 A3 편집과 A4 Asset - Item 편집(A1에서 바로, 또는 묶음에 담긴 채 · A2-3 UI 재사용)으로 보완한다.'},
+ {id:'f2', name:'F2 탐색 · 상세', ids:['explore','item-drawer','compare','realdata','item-edit'],
+  note:'Site/Phase 타임라인 → Item 드로어 → 실데이터 · 비교. 데이터 관리자는 드로어에서 SAMS로 건너간다.'},
+ {id:'f3', name:'F3 프로젝트 (맥락)', ids:['explore','context','site-draw','event-modal','place-items','item-drawer','item-edit'],
+  note:'Project · Site 폴리곤 · Event/Phase를 만들고 Item을 Site · Event에 연결한다. 우측 패널 인라인 편집 + 좌측 리스트 묶음.'},
+ {id:'f4', name:'F4 Curation · 공개', ids:['explore','cur-list','cur-edit','basket','publish-modal','cur-view','cur-item','cur-compare','cur-real'],
+  note:'Curation 편집 → 발행 → 뷰어. 일반 뷰어는 C1 이하만 본다.'},
+];
+
+/* ───────── 렌더 ───────── */
+const W=320, H=200, COLW=620, ROWH=330, PAD_X=44, PAD_Y=150, GAP=ROWH-H-56; // GAP: 캡션 아래 빈 띠(연결선 레인)
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const T=(x,y,t,o={})=>`<text x="${x}" y="${y}" font-size="${o.fs||7}" fill="${o.fill||'var(--ink2)'}" text-anchor="${o.a||'start'}" font-weight="${o.fw||400}" dominant-baseline="${o.db||'auto'}">${esc(t)}</text>`;
+const R=(x,y,w,h,o={})=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${o.rx??2}" fill="${o.fill||'var(--fill)'}" stroke="${o.stroke||'none'}" stroke-width="${o.sw||1}" ${o.dash?`stroke-dasharray="${o.dash}"`:''} ${o.op?`opacity="${o.op}"`:''}/>`;
+const stColor=s=>({ok:'var(--ok)',part:'var(--part)',plan:'var(--plan)'})[s.status]||'var(--ink2)';
+
+function screenSvg(s){
+  const shot=s.shots[0]; const src=shot&&IMG[shot.c];
+  if(src) return `<image href="${src}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/>`;
+  // 캡처 없음: 오버레이면 바탕 화면을 흐리게 깔고 안내
+  let o=R(0,0,W,H,{fill:'var(--fill)',rx:0});
+  if(s.overlay){ const b=BY[s.base]; const bs=b.shots[0]&&IMG[b.shots[0].c]; if(bs) o+=`<image href="${bs}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" opacity=".28"/>`; }
+  const boxW=200, boxH=84, bx=(W-boxW)/2, by=(H-boxH)/2;
+  o+=R(bx,by,boxW,boxH,{fill:'var(--frame)',stroke:'var(--ink2)',dash:s.status==='plan'?'5 4':'',rx:6});
+  o+=T(W/2,by+30,s.status==='plan'?'미구현':'스크린샷 미갱신',{a:'middle',fs:12,fw:600,fill:'var(--ink)'});
+  o+=T(W/2,by+52,s.status==='plan'?'설계만 확정됨':'캡쳐 예정',{a:'middle',fs:9,fill:'var(--ink2)'});
+  return o;
+}
+
+function layoutTab(tab){
+  const ids=new Set(tab.ids); const list=S.filter(s=>ids.has(s.id));
+  const depths=[...new Set(list.map(s=>s.depth))].sort((a,b)=>a-b);
+  const colX={}; depths.forEach((d,i)=> colX[d]=PAD_X+i*COLW);
+  const pos={}; let y=PAD_Y; const bands=[];
+  AREAS.forEach(ar=>{
+    const inArea=list.filter(s=>s.area===ar.id); if(!inArea.length) return;
+    const perCol={}; inArea.forEach(s=>{ (perCol[s.depth]=perCol[s.depth]||[]).push(s); });
+    const rowsN=Math.max(...Object.values(perCol).map(a=>a.length));
+    Object.entries(perCol).forEach(([d,arr])=> arr.forEach((s,i)=> pos[s.id]={x:colX[d],y:y+i*ROWH}));
+    bands.push({area:ar,y0:y,h:rowsN*ROWH});
+    y+=rowsN*ROWH;
+  });
+  return {list,depths,colX,pos,bands,totalH:y,totalW:PAD_X+depths.length*COLW};
+}
+
+function buildEdges(tab,L){
+  const ids=new Set(tab.ids); const edges=[];
+  L.list.forEach(s=> s.exits.forEach(e=>{ if(!ids.has(e.t)) return; if(tab.ovOnly && !e.ov) return; edges.push({from:s.id,to:e.t,a:e.a,back:!!e.back,ovl:!!BY[e.t].overlay}); }));
+  return edges;
+}
+
+function routeEdges(edges,L){
+  const P=L.pos;
+  const counts={}; edges.forEach(e=>{ const a=P[e.from],b=P[e.to]; const k= a.x===b.x? 'c'+a.x : 'g'+Math.min(a.x,b.x)+'-'+Math.max(a.x,b.x); counts[k]=(counts[k]||0)+1; });
+  const idx={};
+  const colsBetween=(x1,x2)=> Math.round(Math.abs(x2-x1)/COLW);
+  edges.forEach(e=>{
+    const a=P[e.from], b=P[e.to];
+    const k= a.x===b.x? 'c'+a.x : 'g'+Math.min(a.x,b.x)+'-'+Math.max(a.x,b.x); idx[k]=(idx[k]||0)+1; const off=(idx[k]-(counts[k]+1)/2)*12;
+    const gutter=(COLW-W);
+    let pts;
+    if(b.x>a.x){
+      const sy=a.y+H/2+off*0.6, ty=b.y+H/2+off*0.6;
+      if(colsBetween(a.x,b.x)===1){ const gx=a.x+W+gutter/2+off; pts=[[a.x+W,sy],[gx,sy],[gx,ty],[b.x,ty]]; }
+      else { // 여러 열을 건널 때: 첫 거터에서 캡션 아래 레인으로 내려가 지나간 뒤 마지막 거터에서 올라간다
+        const g1=a.x+W+gutter/2+off, g2=b.x-gutter/2+off, lane=a.y+H+56+GAP/2+off;
+        pts=[[a.x+W,sy],[g1,sy],[g1,lane],[g2,lane],[g2,ty],[b.x,ty]]; }
+    } else if(b.x<a.x){
+      const sy=a.y+H/2+off*0.6, ty=b.y+H/2+off*0.6;
+      if(colsBetween(a.x,b.x)===1){ const gx=b.x+W+gutter/2+off; pts=[[a.x,sy],[gx,sy],[gx,ty],[b.x+W,ty]]; }
+      else { const g1=a.x-gutter/2+off, g2=b.x+W+gutter/2+off, lane=a.y+H+56+GAP/2+off; pts=[[a.x,sy],[g1,sy],[g1,lane],[g2,lane],[g2,ty],[b.x+W,ty]]; }
+    } else { const down=b.y>a.y; const sx=a.x+W/2+off, tx=b.x+W/2+off;
+      if(down){ pts=[[sx,a.y+H+56],[sx,b.y]]; }
+      else { const gx=a.x+W+30+off; pts=[[a.x+W,a.y+H/2+off*0.6],[gx,a.y+H/2+off*0.6],[gx,b.y+H/2+off*0.6],[b.x+W,b.y+H/2+off*0.6]]; } }
+    e.pts=pts.filter((p,i)=> i===0 || p[0]!==pts[i-1][0] || p[1]!==pts[i-1][1]);
+    // 라벨: 거터의 세로 세그먼트 중앙(노드 사이 빈 공간)을 우선, 없으면 가장 긴 세그먼트
+    let best=null; for(let i=0;i<e.pts.length-1;i++){ const [x1,y1]=e.pts[i],[x2,y2]=e.pts[i+1]; const len=Math.hypot(x2-x1,y2-y1); const vert=x1===x2; const score=len+(vert?500:0); if(!best||score>best.score) best={score,x:(x1+x2)/2,y:(y1+y2)/2,vert,len}; }
+    e.lx=best.x; e.ly=best.y; e.lw=Math.min(e.a.length*5.6+22, 210);
+  });
+  for(let pass=0;pass<10;pass++){ let moved=false; for(let i=0;i<edges.length;i++) for(let j=i+1;j<edges.length;j++){ const p=edges[i],q=edges[j]; const ox=(p.lw+q.lw)/2+4-Math.abs(p.lx-q.lx), oy=22-Math.abs(p.ly-q.ly); if(ox>0&&oy>0){ if(p.ly<=q.ly){p.ly-=11;q.ly+=11;} else {p.ly+=11;q.ly-=11;} moved=true; } } if(!moved) break; }
+  const boxes=L.list.map(s=>({x:L.pos[s.id].x,y:L.pos[s.id].y,w:W,h:H+46}));
+  edges.forEach(e=>{ boxes.forEach(b=>{ if(e.lx-e.lw/2<b.x+b.w+4 && e.lx+e.lw/2>b.x-4 && e.ly-10<b.y+b.h+4 && e.ly+10>b.y-4){ // 노드 위에 올라가면 가까운 거터로 민다
+        const left=b.x-4-e.lw/2, right=b.x+b.w+4+e.lw/2; e.lx= Math.abs(e.lx-left)<Math.abs(e.lx-right)? left : right; } }); });
+  return edges;
+}
+
+const svg=document.getElementById('cv');
+let cur=TABS[0], view={k:1,x:0,y:0}, selected=null;
+const tabsEl=document.getElementById('tabs');
+TABS.forEach(t=>{ const b=document.createElement('button'); b.textContent=t.name; b.setAttribute('role','tab'); b.id='tab-'+t.id; b.onclick=()=>{ cur=t; selected=null; closePanel(); draw(); fit(); try{localStorage.setItem('sls-tab',t.id)}catch(e){} }; tabsEl.appendChild(b); });
+
+function draw(){
+  TABS.forEach(t=> document.getElementById('tab-'+t.id).setAttribute('aria-selected', t===cur));
+  document.getElementById('hint').textContent=cur.note+'  ·  드래그 이동 · 휠 확대 · 화면 클릭 상세 · 더블클릭 전체';
+  const L=layoutTab(cur); cur.L=L;
+  const edges=routeEdges(buildEdges(cur,L),L);
+  let o=`<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--edge)"/></marker><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--edge2)"/></marker><marker id="arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--hi)"/></marker><marker id="arh2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--hi2)"/></marker></defs>`;
+  o+=`<g id="world" transform="translate(${view.x},${view.y}) scale(${view.k})">`;
+  L.bands.forEach((b,i)=>{ o+=R(20,b.y0-56,L.totalW+40,b.h,{fill:i%2?'var(--band)':'var(--band2)',rx:8}); o+=T(34,b.y0-28,b.area.name,{fs:17,fw:700,fill:'var(--ink)'}); });
+  L.depths.forEach(d=>{ const x=L.colX[d]; o+=T(x,PAD_Y-96,`Depth ${d}`,{fs:12,fw:600,fill:'var(--ink2)'}); o+=T(x,PAD_Y-78,DEPTH_NAMES[d]||'',{fs:15,fw:600,fill:'var(--ink)'}); o+=`<line x1="${x}" y1="${PAD_Y-68}" x2="${x+W}" y2="${PAD_Y-68}" stroke="var(--line)" stroke-width="1"/>`; });
+  o+=`<g id="edges">`;
+  edges.forEach((e,i)=>{ const d='M'+e.pts.map(p=>p.join(' ')).join(' L '); const col=e.back?'var(--edge2)':'var(--edge)'; const [sx,sy]=e.pts[0]; o+=`<g class="edge ${e.back?'back':''}" data-f="${e.from}" data-t="${e.to}"><path d="${d}" fill="none" stroke="${col}" stroke-width="${e.back?.9:1.1}" ${e.back?'stroke-dasharray="5 4"':e.ovl?'stroke-dasharray="2 3"':''} marker-end="url(#${e.back?'ar2':'ar'})"/><circle cx="${sx}" cy="${sy}" r="2.6" fill="${col}"/></g>`; });
+  o+=`</g>`;
+  L.list.forEach(s=>{ const p=L.pos[s.id]; o+=`<g class="scr ${selected===s.id?'sel':''}" data-id="${s.id}" transform="translate(${p.x},${p.y})">`;
+    o+=`<rect class="frame" x="-1" y="-1" width="${W+2}" height="${H+2}" rx="6" fill="var(--frame)" stroke="${s.overlay?'var(--ink2)':'var(--line)'}" stroke-width="1.5" ${s.overlay?'stroke-dasharray="6 4"':''}/>`;
+    o+=`<clipPath id="c-${s.id}"><rect x="0" y="0" width="${W}" height="${H}" rx="5"/></clipPath><g clip-path="url(#c-${s.id})">${screenSvg(s)}</g>`;
+    if(s.shots.length>1) o+=`<g transform="translate(${W-8},8)">${R(-30,0,30,14,{fill:'var(--frame)',stroke:'var(--line)',rx:7})}${T(-15,7.5,'+'+(s.shots.length-1),{a:'middle',db:'middle',fs:9,fw:600,fill:'var(--ink)'})}</g>`;
+    o+=`<circle cx="6" cy="${H+15}" r="3.5" fill="${stColor(s)}"/>`;
+    o+=`<text x="16" y="${H+19}" font-size="12.5" fill="var(--ink)"><tspan font-weight="700">${esc(s.code)}</tspan><tspan dx="6" font-weight="500">${esc(s.name)}</tspan></text>`;
+    let tags=[s.role]; if(s.overlay) tags.push('오버레이 · '+BY[s.base].name+' 위'); if(s.state) tags.push(s.state); tags.push(STATUS[s.status]);
+    o+=T(16,H+33,tags.join('  ·  '),{fs:10,fill:'var(--ink2)'});
+    o+=`</g>`; });
+  o+=`<g id="pills">`;
+  edges.forEach(e=>{ const col=e.back?'var(--edge2)':'var(--ink)'; const a=e.a.length>34? e.a.slice(0,33)+'…':e.a; o+=`<g class="pill" data-f="${e.from}" data-t="${e.to}" transform="translate(${e.lx},${e.ly})"><rect x="${-e.lw/2}" y="-9.5" width="${e.lw}" height="19" rx="9.5" fill="var(--frame)" stroke="var(--line)" stroke-width="0.8"/>${T(0,0,a,{a:'middle',db:'middle',fs:9.5,fw:400,fill:col})}</g>`; });
+  o+=`</g></g>`;
+  svg.innerHTML=o;
+  svg.querySelectorAll('.scr').forEach(g=>{ g.addEventListener('click',ev=>{ ev.stopPropagation(); select(g.dataset.id); }); g.addEventListener('pointerenter',()=>{ if(!selected) applyFocus(g.dataset.id); }); g.addEventListener('pointerleave',()=>{ if(!selected) applyFocus(null); }); });
+  applyFocus(selected);
+}
+
+/* 연결성 강조: 고른(또는 올린) 화면과 그에 닿는 선 · 라벨 · 이웃 화면만 살리고 나머지는 흐리게 */
+function applyFocus(id){
+  svg.classList.toggle('focus', !!id);
+  const near=new Set(); if(id){ near.add(id); svg.querySelectorAll('.edge').forEach(g=>{ if(g.dataset.f===id) near.add(g.dataset.t); if(g.dataset.t===id) near.add(g.dataset.f); }); }
+  svg.querySelectorAll('.scr').forEach(g=>{ const me=g.dataset.id===id, nb=!me&&near.has(g.dataset.id); g.classList.toggle('sel',me); g.classList.toggle('near',nb); g.classList.toggle('dim', !!id && !me && !nb); });
+  svg.querySelectorAll('.edge, .pill').forEach(g=>{ const on=!!id && (g.dataset.f===id||g.dataset.t===id); const out=g.dataset.f===id; g.classList.toggle('on',on); g.classList.toggle('out',on&&out); g.classList.toggle('in',on&&!out); g.classList.toggle('dim', !!id && !on); const path=g.querySelector('path'); if(path){ path.setAttribute('marker-end', on? (out?'url(#arh)':'url(#arh2)') : (g.classList.contains('back')?'url(#ar2)':'url(#ar)')); } });
+}
+
+function applyView(){ const w=svg.querySelector('#world'); if(w) w.setAttribute('transform',`translate(${view.x},${view.y}) scale(${view.k})`); }
+function fit(){ const L=cur.L; const x0=0, y0=PAD_Y-130; const bw=L.totalW+60, bh=L.totalH-y0+40; const r=svg.getBoundingClientRect(); const k=Math.min(r.width/bw, r.height/bh, 1.6); view={k, x:(r.width-bw*k)/2 - x0*k, y:(r.height-bh*k)/2 - y0*k}; applyView(); }
+function zoomAt(f,cx,cy){ const nk=Math.min(4,Math.max(.12,view.k*f)); view.x=cx-(cx-view.x)*(nk/view.k); view.y=cy-(cy-view.y)*(nk/view.k); view.k=nk; applyView(); }
+svg.addEventListener('wheel',e=>{ e.preventDefault(); const r=svg.getBoundingClientRect(); zoomAt(e.deltaY<0?1.12:1/1.12, e.clientX-r.left, e.clientY-r.top); },{passive:false});
+let drag=null; svg.addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y}; svg.setPointerCapture(e.pointerId); svg.classList.add('grabbing'); });
+svg.addEventListener('pointermove',e=>{ if(!drag) return; view.x=drag.vx+(e.clientX-drag.x); view.y=drag.vy+(e.clientY-drag.y); applyView(); });
+svg.addEventListener('pointerup',()=>{ drag=null; svg.classList.remove('grabbing'); });
+svg.addEventListener('dblclick',e=>{ if(!e.target.closest('.scr')) fit(); });
+document.getElementById('zin').onclick=()=>{ const r=svg.getBoundingClientRect(); zoomAt(1.25,r.width/2,r.height/2); };
+document.getElementById('zout').onclick=()=>{ const r=svg.getBoundingClientRect(); zoomAt(1/1.25,r.width/2,r.height/2); };
+document.getElementById('fit').onclick=fit;
+window.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT') return; const r=svg.getBoundingClientRect(); if(e.key==='+'||e.key==='=') zoomAt(1.2,r.width/2,r.height/2); else if(e.key==='-') zoomAt(1/1.2,r.width/2,r.height/2); else if(e.key==='0') fit(); else if(e.key==='Escape'){ if(lb.classList.contains('open')) lb.classList.remove('open'); else closePanel(); } else if(e.key.startsWith('Arrow')){ const d=40; if(e.key==='ArrowLeft') view.x+=d; if(e.key==='ArrowRight') view.x-=d; if(e.key==='ArrowUp') view.y+=d; if(e.key==='ArrowDown') view.y-=d; applyView(); } });
+window.addEventListener('resize',fit);
+
+/* ───────── 상세 패널 ───────── */
+const panel=document.getElementById('panel'), pbody=document.getElementById('pbody'), lb=document.getElementById('lb'), lbimg=document.getElementById('lbimg');
+lb.onclick=()=>lb.classList.remove('open');
+function closePanel(){ panel.classList.remove('open'); selected=null; applyFocus(null); }
+document.getElementById('pclose').onclick=closePanel;
+function select(id, shotIdx=0){
+  const s=BY[id]; selected=id; applyFocus(id);
+  const incoming=S.flatMap(o=>o.exits.filter(e=>e.t===id).map(e=>({from:o,a:e.a})));
+  const shot=s.shots[shotIdx]; const src=shot&&IMG[shot.c];
+  const shotHtml= src? `<img class="shot" src="${src}" alt="${esc(s.code+' '+s.name)}" data-full="${src}">` : `<div class="shot none">${s.status==='plan'?'미구현 — 설계만 확정됨':'스크린샷 미갱신 — 캡쳐 예정'}</div>`;
+  const variants= s.shots.length>1? `<div class="variants">${s.shots.map((v,i)=>`<button aria-pressed="${i===shotIdx}" data-v="${i}">${esc(v.l)}</button>`).join('')}</div>`:'';
+  pbody.innerHTML=`<h2>${esc(s.code)} ${esc(s.name)}</h2>
+   <div class="meta"><span class="st-${s.status}">${STATUS[s.status]}</span><span>Depth ${s.depth}</span><span>${esc(AREAS.find(a=>a.id===s.area).name)}</span><span>${esc(s.role)}</span>${s.overlay?`<span>오버레이 · ${esc(BY[s.base].name)} 위</span>`:''}${s.state?`<span>${esc(s.state)}</span>`:''}</div>
+   ${shotHtml}${variants}
+   <p style="margin-top:12px">${esc(s.desc)}</p>
+   <h3>UI 요소</h3><ul>${s.ui.map(e=>`<li>${esc(e)}</li>`).join('')}</ul>
+   ${s.notes.length?`<h3>메모 · 와이어플로우와 다른 점</h3><ul>${s.notes.map(e=>`<li>${esc(e)}</li>`).join('')}</ul>`:''}
+   <h3>나가는 전환</h3>${s.exits.map(e=>`<div class="exit"><b>${esc(e.a)}</b><button data-go="${e.t}">→ ${esc(BY[e.t].code)} ${esc(BY[e.t].name)}</button></div>`).join('')||'<p>없음</p>'}
+   <h3>들어오는 전환</h3>${incoming.map(i=>`<div class="exit"><b>${esc(i.from.code)} ${esc(i.from.name)}</b><span style="color:var(--ink2)">${esc(i.a)}</span></div>`).join('')||'<p>없음</p>'}`;
+  pbody.querySelectorAll('[data-go]').forEach(b=>{ b.onmouseenter=()=>{ const g=svg.querySelector(`.scr[data-id="${b.dataset.go}"]`); if(g) g.classList.add('peek'); }; b.onmouseleave=()=>{ svg.querySelectorAll('.scr.peek').forEach(g=>g.classList.remove('peek')); }; });
+  pbody.querySelectorAll('[data-go]').forEach(b=> b.onclick=()=>{ const t=b.dataset.go; if(!cur.ids.includes(t)){ cur=TABS[0]; draw(); fit(); } select(t); const p=cur.L.pos[t]; if(p){ const r=svg.getBoundingClientRect(); view.x=r.width/2-(p.x+W/2)*view.k; view.y=r.height/2-(p.y+H/2)*view.k; applyView(); } });
+  pbody.querySelectorAll('[data-v]').forEach(b=> b.onclick=()=> select(id, +b.dataset.v));
+  const im=pbody.querySelector('img.shot'); if(im) im.onclick=()=>{ lbimg.src=im.dataset.full; lb.classList.add('open'); };
+  panel.classList.add('open');
+}
+
+try{ const t=localStorage.getItem('sls-tab'); const f=TABS.find(x=>x.id===t); if(f) cur=f; }catch(e){}
+draw(); fit();
+</script>
+</body></html>
